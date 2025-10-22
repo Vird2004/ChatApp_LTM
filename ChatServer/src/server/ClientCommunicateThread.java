@@ -5,6 +5,8 @@ import java.net.Socket;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
 public class ClientCommunicateThread extends Thread {
 
@@ -42,54 +44,112 @@ public class ClientCommunicateThread extends Thread {
                 }
 				switch (header) {
 
-				case "new login": {
+//				case "new login": {
+//
+//					String clientUsername = thisClient.receiver.readLine();
+//
+//					boolean userNameExisted = false;
+//					for (Client connectedClient : Main.socketController.connectedClient) {
+//						if (connectedClient.userName.equals(clientUsername)) {
+//							userNameExisted = true;
+//							break;
+//						}
+//					}
+//
+//					if (!userNameExisted) {
+//						thisClient.userName = clientUsername;
+//						Main.socketController.connectedClient.add(thisClient);
+//						Main.mainScreen.updateClientTable();
+//
+//						thisClient.sender.write("login success");
+//						thisClient.sender.newLine();
+//						thisClient.sender.flush();
+//
+//						thisClient.sender.write("" + (Main.socketController.connectedClient.size() - 1));
+//						thisClient.sender.newLine();
+//						thisClient.sender.flush();
+//						for (Client client : Main.socketController.connectedClient) {
+//							if (client.userName.equals(thisClient.userName))
+//								continue;
+//							thisClient.sender.write(client.userName);
+//							thisClient.sender.newLine();
+//							thisClient.sender.flush();
+//						}
+//
+//						for (Client client : Main.socketController.connectedClient) {
+//							if (client.userName.equals(thisClient.userName))
+//								continue;
+//							client.sender.write("new user online");
+//							client.sender.newLine();
+//							client.sender.write(thisClient.userName);
+//							client.sender.newLine();
+//							client.sender.flush();
+//						}
+//					} else {
+//						thisClient.sender.write("login failed");
+//						thisClient.sender.newLine();
+//						thisClient.sender.flush();
+//					}
+//					break;
+//				}
+case "new login": {
+    String clientUsername = thisClient.receiver.readLine();
 
-					String clientUsername = thisClient.receiver.readLine();
+    boolean userNameExisted = false;
+    for (Client connectedClient : Main.socketController.connectedClient) {
+        if (connectedClient.userName != null &&
+            connectedClient.userName.equals(clientUsername)) {
+            userNameExisted = true;
+            break;
+        }
+    }
 
-					boolean userNameExisted = false;
-					for (Client connectedClient : Main.socketController.connectedClient) {
-						if (connectedClient.userName.equals(clientUsername)) {
-							userNameExisted = true;
-							break;
-						}
-					}
+    if (!userNameExisted) {
+        // 🔹 Đây là socket CHÍNH (chat)
+        thisClient.userName = clientUsername;
+        thisClient.isMainConnection = true; // ✅ Thêm dòng này
+        Main.socketController.connectedClient.add(thisClient);
+        Main.mainScreen.updateClientTable();
 
-					if (!userNameExisted) {
-						thisClient.userName = clientUsername;
-						Main.socketController.connectedClient.add(thisClient);
-						Main.mainScreen.updateClientTable();
+        thisClient.sender.write("login success");
+        thisClient.sender.newLine();
+        thisClient.sender.flush();
 
-						thisClient.sender.write("login success");
-						thisClient.sender.newLine();
-						thisClient.sender.flush();
+        thisClient.sender.write("" + (Main.socketController.connectedClient.size() - 1));
+        thisClient.sender.newLine();
+        thisClient.sender.flush();
 
-						thisClient.sender.write("" + (Main.socketController.connectedClient.size() - 1));
-						thisClient.sender.newLine();
-						thisClient.sender.flush();
-						for (Client client : Main.socketController.connectedClient) {
-							if (client.userName.equals(thisClient.userName))
-								continue;
-							thisClient.sender.write(client.userName);
-							thisClient.sender.newLine();
-							thisClient.sender.flush();
-						}
+        for (Client client : Main.socketController.connectedClient) {
+            if (client.userName.equals(thisClient.userName)) continue;
+            thisClient.sender.write(client.userName);
+            thisClient.sender.newLine();
+            thisClient.sender.flush();
+        }
 
-						for (Client client : Main.socketController.connectedClient) {
-							if (client.userName.equals(thisClient.userName))
-								continue;
-							client.sender.write("new user online");
-							client.sender.newLine();
-							client.sender.write(thisClient.userName);
-							client.sender.newLine();
-							client.sender.flush();
-						}
-					} else {
-						thisClient.sender.write("login failed");
-						thisClient.sender.newLine();
-						thisClient.sender.flush();
-					}
-					break;
-				}
+        for (Client client : Main.socketController.connectedClient) {
+            if (client.userName.equals(thisClient.userName)) continue;
+            client.sender.write("new user online");
+            client.sender.newLine();
+            client.sender.write(thisClient.userName);
+            client.sender.newLine();
+            client.sender.flush();
+        }
+
+        System.out.println("✅ Client đăng nhập thành công: " + clientUsername);
+    } else {
+        // 🔹 Đây là socket PHỤ (voice)
+        thisClient.userName = clientUsername;
+        thisClient.isMainConnection = false; // ✅ Thêm dòng này
+        thisClient.sender.write("login success");
+        thisClient.sender.newLine();
+        thisClient.sender.flush();
+
+        System.out.println("🔁 Socket phụ đăng nhập: " + clientUsername);
+    }
+    break;
+}
+
+
 
 				case "get name": {
 					thisClient.sender.write(Main.socketController.serverName);
@@ -175,99 +235,94 @@ public class ClientCommunicateThread extends Thread {
 					break;
 				}
 
-				case "file to room": {
-					int roomID = Integer.parseInt(thisClient.receiver.readLine());
-					int roomMessagesCount = Integer.parseInt(thisClient.receiver.readLine());
-					String fileName = thisClient.receiver.readLine();
-					int fileSize = Integer.parseInt(thisClient.receiver.readLine());
+				// Sửa khối case "file to room" trong ClientCommunicateThread.java
+case "file to room": {
+    int roomID = Integer.parseInt(thisClient.receiver.readLine());
+    int roomMessagesCount = Integer.parseInt(thisClient.receiver.readLine());
+    String fileName = thisClient.receiver.readLine();
+    int fileSize = Integer.parseInt(thisClient.receiver.readLine());
 
-					File filesFolder = new File("files");
-					if (!filesFolder.exists())
-						filesFolder.mkdir();
+    File filesFolder = new File("files");
+    if (!filesFolder.exists())
+        filesFolder.mkdir();
 
-					int dotIndex = fileName.lastIndexOf('.');
-					String saveFileName = "files/" + fileName.substring(0, dotIndex)
-							+ String.format("%02d%03d", roomID, roomMessagesCount) + fileName.substring(dotIndex);
+    int dotIndex = fileName.lastIndexOf('.');
+    String saveFileName = "files/" + fileName.substring(0, dotIndex)
+            + String.format("%02d%03d", roomID, roomMessagesCount) + fileName.substring(dotIndex);
 
-					File file = new File(saveFileName);
-					byte[] buffer = new byte[1024];
-					InputStream in = thisClient.socket.getInputStream();
-					OutputStream out = new FileOutputStream(file);
+    File file = new File(saveFileName);
+    byte[] buffer = new byte[1024];
+    InputStream in = thisClient.socket.getInputStream();
+    
+    // SỬA: Dùng try-with-resources để đảm bảo OutputStream được đóng
+    try (OutputStream out = new FileOutputStream(file)) {
 
-					int receivedSize = 0;
-					int count;
-					while ((count = in.read(buffer)) > 0) {
-						out.write(buffer, 0, count);
-						receivedSize += count;
-						if (receivedSize >= fileSize)
-							break;
-					}
+        int receivedSize = 0;
+        int count;
+        while ((count = in.read(buffer)) > 0) {
+            out.write(buffer, 0, count);
+            receivedSize += count;
+            if (receivedSize >= fileSize)
+                break;
+        }
+    } // out.close() được gọi tự động ở đây
 
-					out.close();
-
-					Room room = Room.findRoom(Main.socketController.allRooms, roomID);
-					for (String user : room.users) {
-						Client currentClient = Client.findClient(Main.socketController.connectedClient, user);
-						if (currentClient != null) {
-							currentClient.sender.write("file from user to room");
-							currentClient.sender.newLine();
-							currentClient.sender.write(thisClient.userName);
-							currentClient.sender.newLine();
-							currentClient.sender.write("" + roomID);
-							currentClient.sender.newLine();
-							currentClient.sender.write(fileName);
-							currentClient.sender.newLine();
-							currentClient.sender.flush();
-						}
-					}
-					break;
-				}
-
-				case "audio to room": {
+    Room room = Room.findRoom(Main.socketController.allRooms, roomID);
+    for (String user : room.users) {
+        Client currentClient = Client.findClient(Main.socketController.connectedClient, user);
+        if (currentClient != null) {
+            currentClient.sender.write("file from user to room");
+            currentClient.sender.newLine();
+            currentClient.sender.write(thisClient.userName);
+            currentClient.sender.newLine();
+            currentClient.sender.write("" + roomID);
+            currentClient.sender.newLine();
+            currentClient.sender.write(fileName);
+            currentClient.sender.newLine();
+            currentClient.sender.flush();
+        }
+    }
+    break;
+}
+case "audio to room": {
     int roomID = Integer.parseInt(thisClient.receiver.readLine());
     int roomMessagesCount = Integer.parseInt(thisClient.receiver.readLine());
     int audioDuration = Integer.parseInt(thisClient.receiver.readLine());
     int audioByteSize = Integer.parseInt(thisClient.receiver.readLine());
 
-    // 🗂️ Tạo thư mục lưu file nếu chưa có
+    if (thisClient.userName == null || thisClient.userName.trim().isEmpty()) {
+        System.out.println("⚠️ Client chưa đăng nhập nhưng gửi voice. Bỏ qua gói tin.");
+        break;
+    }
+
     File filesFolder = new File("files");
     if (!filesFolder.exists()) filesFolder.mkdir();
 
-    // 🧩 Tạo tên file .wav
-    String audioFileName = String.format("/src/files/audio%02d%03d.wav", roomID, roomMessagesCount);
-    File file = new File(audioFileName);
+    // ✅ Đặt tên file chuẩn để gửi lại cho client
+    String fileName = String.format("audio%02d%03d.wav", roomID, roomMessagesCount);
+    File file = new File(filesFolder, fileName);
 
-    System.out.println("📥 Bắt đầu nhận voice từ " + thisClient.userName +
-                       " | Room: " + roomID + " | Dung lượng: " + audioByteSize + " bytes");
+    System.out.println("📥 Nhận voice từ " + thisClient.userName +
+                       " | Room: " + roomID + " | " + audioByteSize + " bytes");
 
-    InputStream in = thisClient.socket.getInputStream();
-    OutputStream out = new FileOutputStream(file);
-    byte[] buffer = new byte[8192];
-
-    int totalRead = 0;
-    int bytesRead;
-    long start = System.currentTimeMillis();
-
-    // đọc chính xác audioByteSize byte
-    while (totalRead < audioByteSize &&
-          (bytesRead = in.read(buffer, 0, Math.min(buffer.length, audioByteSize - totalRead))) != -1) {
-        out.write(buffer, 0, bytesRead);
-        totalRead += bytesRead;
+    try (OutputStream out = new FileOutputStream(file)) {
+        byte[] buffer = new byte[8192];
+        int totalRead = 0, bytesRead;
+        InputStream in = thisClient.socket.getInputStream();
+        while (totalRead < audioByteSize &&
+              (bytesRead = in.read(buffer, 0, Math.min(buffer.length, audioByteSize - totalRead))) != -1) {
+            out.write(buffer, 0, bytesRead);
+            totalRead += bytesRead;
+        }
+        out.flush();
+        System.out.println("✅ Lưu file: " + file.getAbsolutePath());
     }
 
-    out.flush();
-    //out.close();
-    long end = System.currentTimeMillis();
-
-    System.out.println("✅ Đã nhận đủ " + totalRead + "/" + audioByteSize + " bytes");
-    System.out.println("⏱️ Thời gian: " + (end - start) + " ms");
-    System.out.println("📁 Lưu tại: " + file.getAbsolutePath());
-
-    // 🔁 Gửi thông báo cho các user trong room
     Room room = Room.findRoom(Main.socketController.allRooms, roomID);
     for (String user : room.users) {
         Client currentClient = Client.findClient(Main.socketController.connectedClient, user);
-        if (currentClient != null) {
+        if (currentClient == null || currentClient.sender == null) continue;
+        try {
             currentClient.sender.write("audio from user to room");
             currentClient.sender.newLine();
             currentClient.sender.write(thisClient.userName);
@@ -276,12 +331,21 @@ public class ClientCommunicateThread extends Thread {
             currentClient.sender.newLine();
             currentClient.sender.write(String.valueOf(audioDuration));
             currentClient.sender.newLine();
+            currentClient.sender.write(fileName);  // ✅ gửi thêm tên file
+            currentClient.sender.newLine();
             currentClient.sender.flush();
+
+            System.out.println("📤 Gửi thông báo audio tới " + user + " (" + fileName + ")");
+        } catch (Exception ex) {
+            System.err.println("⚠️ Không thể gửi audio tới " + currentClient.userName + ": " + ex.getMessage());
         }
     }
-
     break;
 }
+
+
+
+
 
 
 				case "request download file": {
@@ -323,11 +387,9 @@ public class ClientCommunicateThread extends Thread {
         int roomID = Integer.parseInt(thisClient.receiver.readLine());
         int messageIndex = Integer.parseInt(thisClient.receiver.readLine());
 
-        // ✅ Đặt đúng tên file có đuôi .wav
         String audioFileName = String.format("files/audio%02d%03d.wav", roomID, messageIndex);
         File file = new File(audioFileName);
 
-        // ❌ Nếu file không tồn tại, thông báo lỗi ra console và bỏ qua
         if (!file.exists()) {
             System.err.println("❌ Không tìm thấy file: " + file.getAbsolutePath());
             thisClient.sender.write("response audio notfound");
@@ -336,37 +398,29 @@ public class ClientCommunicateThread extends Thread {
             break;
         }
 
-        // ✅ Thông báo kích thước file sắp gửi
         thisClient.sender.write("response audio bytes");
         thisClient.sender.newLine();
         thisClient.sender.write(String.valueOf(file.length()));
         thisClient.sender.newLine();
         thisClient.sender.flush();
 
-        // 📤 Gửi file nhị phân
         byte[] buffer = new byte[8192];
-        try (InputStream in = new FileInputStream(file);
-             OutputStream out = thisClient.socket.getOutputStream()) {
-
-            System.out.println("📤 Đang gửi lại file " + file.getName() +
-                               " (" + file.length() + " bytes) cho " + thisClient.userName);
-
-            int bytesRead;
-            long totalSent = 0;
+        OutputStream socketOut = thisClient.socket.getOutputStream();
+        try (InputStream in = new FileInputStream(file)) {
+            int bytesRead; long totalSent = 0;
             while ((bytesRead = in.read(buffer)) != -1) {
-                out.write(buffer, 0, bytesRead);
+                socketOut.write(buffer, 0, bytesRead);
                 totalSent += bytesRead;
             }
-
-            out.flush();
-            System.out.println("✅ Gửi hoàn tất: " + totalSent + " bytes.");
+            socketOut.flush();
+            System.out.println("✅ Gửi audio lại: " + totalSent + " bytes.");
         }
-
     } catch (IOException ex) {
         ex.printStackTrace();
     }
     break;
 }
+
 
 
 				}
@@ -403,16 +457,18 @@ public class ClientCommunicateThread extends Thread {
     private void handleDisconnect() {
     try {
         if (thisClient == null) return;
-String name = (thisClient.userName == null) ? "[chưa đăng nhập]" : thisClient.userName;
-System.out.println("🔌 Mất kết nối với client: " + name);
 
+        // 🔹 Bỏ qua socket phụ (voice)
+        if (!thisClient.isMainConnection) {
+            System.out.println("🎤 Socket phụ của " + thisClient.userName + " ngắt kết nối (bỏ qua)");
+            return;
+        }
 
-        System.out.println("🔌 Ngắt kết nối: " + thisClient.userName);
+        String name = (thisClient.userName == null) ? "[chưa đăng nhập]" : thisClient.userName;
+        System.out.println("🔌 Ngắt kết nối: " + name);
 
-        // Xóa client khỏi danh sách
         Main.socketController.connectedClient.remove(thisClient);
 
-        // Gửi thông báo tới các client khác
         for (Client c : Main.socketController.connectedClient) {
             if (c.sender == null) continue;
             try {
@@ -434,7 +490,6 @@ System.out.println("🔌 Mất kết nối với client: " + name);
             thisClient.socket.close();
         }
 
-        // Cập nhật giao diện
         if (Main.mainScreen != null)
             Main.mainScreen.updateClientTable();
 
@@ -442,5 +497,6 @@ System.out.println("🔌 Mất kết nối với client: " + name);
         System.err.println("❌ Lỗi handleDisconnect: " + e.getMessage());
     }
 }
+
 
 }

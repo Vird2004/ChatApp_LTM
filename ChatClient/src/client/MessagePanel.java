@@ -112,39 +112,43 @@ public class MessagePanel extends JPanel {
 			this.setMaximumSize(new Dimension(thisMaxSize.width, 30));
 
 		} else if (data.type.equals("audio")) {
-			contentPanel.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
-			contentPanel.addMouseListener(new MouseAdapter() {
-				@Override
-				public void mouseClicked(MouseEvent e) {
+    contentPanel.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
 
-					Room room = Room.findRoom(Main.socketController.allRooms, MainScreen.chattingRoom);
-					int messageIndex = -1;
-					for (int i = 0; i < room.messages.size(); i++) {
-						if (room.messages.get(i) == data) {
-							messageIndex = i;
-							break;
-						}
-					}
-					Main.socketController.getAudioBytes(room.id, messageIndex);
-				}
-			});
+    contentPanel.addMouseListener(new MouseAdapter() {
+        @Override
+        public void mouseClicked(MouseEvent e) {
+            Room room = Room.findRoom(Main.socketController.allRooms, MainScreen.chattingRoom);
+            int messageIndex = -1;
+            for (int i = 0; i < room.messages.size(); i++) {
+                if (room.messages.get(i) == data) {
+                    messageIndex = i;
+                    break;
+                }
+            }
+            // ✅ Khi click, gửi request nhận lại file âm thanh
+            Main.socketController.getAudioBytes(room.id, messageIndex);
+        }
+    });
 
-			JLabel audioIcon = new JLabel(Main.getScaledImage("/resources/audio.png", 16, 16));
+    // ✅ Giải mã lại fileName và thời lượng
+    String[] parts = data.content.split("@");
+    String fileName = parts[0];
+    int duration = Integer.parseInt(parts[1]);
 
-			int seconds = Integer.parseInt(data.content);
-			int minutes = seconds / 60;
-			seconds %= 60;
+    JLabel audioIcon = new JLabel(Main.getScaledImage("/resources/audio.png", 16, 16));
+    JLabel durationLabel = new JLabel(String.format("%02d:%02d", duration / 60, duration % 60));
+    durationLabel.setFont(new Font("Dialog", Font.PLAIN, 15));
 
-			JLabel durationLabel = new JLabel(String.format("%02d:%02d", minutes, seconds));
-			durationLabel.setFont(new Font("Dialog", Font.PLAIN, 15));
+    contentPanel.add(audioIcon,
+        new GBCBuilder(1, 1).setWeight(0, 0).setAnchor(GridBagConstraints.LINE_START)
+            .setFill(GridBagConstraints.NONE).setInsets(0, 0, 0, 5));
+    contentPanel.add(durationLabel,
+        new GBCBuilder(2, 1).setWeight(1, 0).setAnchor(GridBagConstraints.LINE_START));
 
-			contentPanel.add(audioIcon, new GBCBuilder(1, 1).setWeight(0, 0).setAnchor(GridBagConstraints.LINE_START)
-					.setFill(GridBagConstraints.NONE).setInsets(0, 0, 0, 5));
-			contentPanel.add(durationLabel,
-					new GBCBuilder(2, 1).setWeight(1, 0).setAnchor(GridBagConstraints.LINE_START));
+    this.setMaximumSize(new Dimension(thisMaxSize.width, 30));
+}
 
-			this.setMaximumSize(new Dimension(thisMaxSize.width, 30));
-		}
+
 
 		this.setLayout(new BoxLayout(this, BoxLayout.X_AXIS));
 		whoSendLabel.setAlignmentY(Component.TOP_ALIGNMENT);

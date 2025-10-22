@@ -6,6 +6,7 @@ import java.awt.event.ActionListener;
 
 import javax.swing.*;
 import javax.swing.table.DefaultTableModel;
+import javax.swing.table.TableModel;
 
 public class MainScreen extends JFrame implements ActionListener {
 
@@ -89,14 +90,43 @@ public class MainScreen extends JFrame implements ActionListener {
 		}
 	}
 
-	public void updateClientTable() {
+//	public void updateClientTable() {
+//
+//		Object[][] tableContent = new Object[Main.socketController.connectedClient.size()][2];
+//		for (int i = 0; i < Main.socketController.connectedClient.size(); i++) {
+//			tableContent[i][0] = Main.socketController.connectedClient.get(i).userName;
+//			tableContent[i][1] = Main.socketController.connectedClient.get(i).port;
+//		}
+//
+//		clientTable.setModel(new DefaultTableModel(tableContent, new String[] { "Tên client", "Port client" }));
+//	}
+        
+      public synchronized void updateClientTable() {
+    try {
+        TableModel tm = clientTable.getModel();
 
-		Object[][] tableContent = new Object[Main.socketController.connectedClient.size()][2];
-		for (int i = 0; i < Main.socketController.connectedClient.size(); i++) {
-			tableContent[i][0] = Main.socketController.connectedClient.get(i).userName;
-			tableContent[i][1] = Main.socketController.connectedClient.get(i).port;
-		}
+        if (!(tm instanceof DefaultTableModel)) {
+            clientTable.setModel(new DefaultTableModel(
+                new Object[]{"Tên client", "Port client"}, 0
+            ));
+        }
 
-		clientTable.setModel(new DefaultTableModel(tableContent, new String[] { "Tên client", "Port client" }));
-	}
+        DefaultTableModel model = (DefaultTableModel) clientTable.getModel();
+
+        // Tạm thời ngắt cập nhật UI để tránh conflict
+        SwingUtilities.invokeLater(() -> {
+            model.setRowCount(0);
+            for (Client c : Main.socketController.connectedClient) {
+                String name = (c.userName == null) ? "[chưa đăng nhập]" : c.userName;
+                model.addRow(new Object[]{name, c.port});
+            }
+        });
+
+    } catch (Exception e) {
+        System.err.println("⚠️ updateClientTable error: " + e.getMessage());
+    }
+}
+
+
+
 }

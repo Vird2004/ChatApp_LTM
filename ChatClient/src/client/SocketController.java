@@ -128,14 +128,27 @@ public class SocketController {
 								Main.mainScreen.addNewMessage(roomID, "file", user, fileName);
 								break;
 							}
-							case "audio from user to room": {
-								String user = receiver.readLine();
-								int roomID = Integer.parseInt(receiver.readLine());
-								int audioDuration = Integer.parseInt(receiver.readLine());
-								System.out.println("Recevie audio from " + user + " to room " + roomID);
-								Main.mainScreen.addNewMessage(roomID, "audio", user, "" + audioDuration);
-								break;
-							}
+//							case "audio from user to room": {
+//								String user = receiver.readLine();
+//								int roomID = Integer.parseInt(receiver.readLine());
+//								int audioDuration = Integer.parseInt(receiver.readLine());
+//								System.out.println("Recevie audio from " + user + " to room " + roomID);
+//								Main.mainScreen.addNewMessage(roomID, "audio", user, "" + audioDuration);
+//								break;
+//							}
+                                                        case "audio from user to room": {
+    String user = receiver.readLine();
+    int roomID = Integer.parseInt(receiver.readLine());
+    int audioDuration = Integer.parseInt(receiver.readLine());
+    String fileName = receiver.readLine();
+
+    System.out.println("📩 Nhận audio từ " + user + " tới room " + roomID + " (" + fileName + ")");
+    Main.mainScreen.addNewMessage(roomID, "audio", user, fileName + "@" + audioDuration);
+    break;
+}
+
+
+
 							case "response download file": {
 								int fileSize = Integer.parseInt(receiver.readLine());
 								File file = new File(downloadToPath);
@@ -234,7 +247,7 @@ public class SocketController {
 			sender.newLine();
 			sender.flush();
 
-			byte[] buffer = new byte[1024];
+			byte[] buffer = new byte[8192];
 			InputStream in = new FileInputStream(file);
 			OutputStream out = s.getOutputStream();
 
@@ -250,41 +263,109 @@ public class SocketController {
 		}
 	}
 
-	public void sendAudioToRoom(int roomID, byte[] audioBytes) {
+//	public void sendAudioToRoom(int roomID, byte[] audioBytes) throws InterruptedException {
+//
+//    try {
+//        System.out.println("Send audio to room " + roomID);
+//
+//        Room room = Room.findRoom(allRooms, roomID);
+//
+//        sender.write("audio to room");
+//        sender.newLine();
+//        sender.write("" + roomID);
+//        sender.newLine();
+//        sender.write("" + room.messages.size());
+//        sender.newLine();
+//        sender.write("" + AudioController.getAudioDuration(audioBytes));
+//        sender.newLine();
+//        sender.write("" + audioBytes.length);
+//        sender.newLine();
+//        sender.flush();
+//
+//        byte[] buffer = new byte[8192];
+//        
+//        // FIX: Chỉ sử dụng ByteArrayInputStream trong try-with-resources.
+//        // Lấy OutputStream của Socket ra khỏi khối try-with-resources 
+//        // để tránh việc out.close() tự động đóng Socket.
+//        try (InputStream in = new ByteArrayInputStream(audioBytes)) {
+//            
+//            OutputStream out = s.getOutputStream(); // Lấy OutputStream của Socket
+//
+//            int count;
+//            while ((count = in.read(buffer)) > 0) {
+//                out.write(buffer, 0, count);
+//            }
+//            // KHÔNG gọi out.close() ở đây! out là socket stream.
+//            out.flush(); 
+//            Thread.sleep(500);
+//        } 
+//        
+//    } catch (IOException e) {
+//        e.printStackTrace();
+//    }
+//}
+        public void sendAudioToRoom(int roomID, byte[] audioBytes) {
+    // Kiểm tra login
+    if (userName == null || userName.trim().isEmpty()) {
+        System.out.println("⚠️ Không thể gửi audio vì user chưa đăng nhập!");
+        return;
+    }
 
-		try {
-			System.out.println("Send audio to room " + roomID);
+    // Dùng socket phụ riêng để gửi voice (song song với socket chính)
+    new Thread(() -> {
+        try (Socket voiceSocket = new Socket(connectedServer.ip, connectedServer.port)) {
+            BufferedWriter tempSender = new BufferedWriter(
+                new OutputStreamWriter(voiceSocket.getOutputStream(), StandardCharsets.UTF_8));
+            BufferedReader tempReceiver = new BufferedReader(
+                new InputStreamReader(voiceSocket.getInputStream(), StandardCharsets.UTF_8));
 
-			Room room = Room.findRoom(allRooms, roomID);
+            // B1: Đăng nhập tạm vào server bằng socket phụ
+            tempSender.write("new login");
+            tempSender.newLine();
+            tempSender.write(userName);
+            tempSender.newLine();
+            tempSender.flush();
 
-			sender.write("audio to room");
-			sender.newLine();
-			sender.write("" + roomID);
-			sender.newLine();
-			sender.write("" + room.messages.size());
-			sender.newLine();
-			sender.write("" + AudioController.getAudioDuration(audioBytes));
-			sender.newLine();
-			sender.write("" + audioBytes.length);
-			sender.newLine();
-			sender.flush();
+            String loginResult = tempReceiver.readLine();
+            if (!"login success".equals(loginResult)) {
+                System.err.println("❌ Gửi voice thất bại: server không xác nhận đăng nhập (loginResult=" + loginResult + ")");
+                return;
+            }
 
-			byte[] buffer = new byte[1024];
-			InputStream in = new ByteArrayInputStream(audioBytes);
-			OutputStream out = s.getOutputStream();
+            // B2: Gửi metadata voice
+            int duration = AudioController.getAudioDuration(audioBytes);
+            tempSender.write("audio to room");
+            tempSender.newLine();
+            tempSender.write(String.valueOf(roomID));
+            tempSender.newLine();
+            tempSender.write(String.valueOf(Room.findRoom(allRooms, roomID).messages.size()));
+            tempSender.newLine();
+            tempSender.write(String.valueOf(duration));
+            tempSender.newLine();
+            tempSender.write(String.valueOf(audioBytes.length));
+            tempSender.newLine();
+            tempSender.flush();
 
-			int count;
-			while ((count = in.read(buffer)) > 0) {
-				out.write(buffer, 0, count);
-			}
+            // B3: Gửi dữ liệu voice thực tế
+            OutputStream out = voiceSocket.getOutputStream();
+            try (InputStream in = new ByteArrayInputStream(audioBytes)) {
+                byte[] buffer = new byte[8192];
+                int count;
+                while ((count = in.read(buffer)) > 0) {
+                    out.write(buffer, 0, count);
+                }
+                out.flush();
+            }
 
-			in.close();
-			out.flush();
+            System.out.println("🎤 Voice gửi thành công (" + audioBytes.length + " bytes, " + duration + "ms)");
 
-		} catch (IOException e) {
-			e.printStackTrace();
-		}
-	}
+        } catch (IOException e) {
+            System.err.println("❌ Lỗi khi gửi voice: " + e.getMessage());
+        }
+    }).start();
+}
+
+
 
 	public String downloadToPath;
 

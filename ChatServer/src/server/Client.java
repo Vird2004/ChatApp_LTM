@@ -11,6 +11,9 @@ public class Client {
 	public Socket socket;
 	public BufferedReader receiver;
 	public BufferedWriter sender;
+        
+        public boolean isMainConnection = true;
+
 
 	public Client(String userName, int port, Socket socket, BufferedReader receiver, BufferedWriter sender) {
 		this.userName = userName;
